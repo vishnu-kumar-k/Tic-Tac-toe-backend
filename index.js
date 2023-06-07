@@ -12,82 +12,115 @@ const io = socketIO(server, {
 var playersOnline = [];
 var randomPlayer = [];
 var team = {};
-const p2p={}
+const p2p = {};
 io.on("connection", (socket) => {
   console.log("A user connected");
-  playersOnline.push(socket.id);
-//Makeing Random Join
+
+  try {
+    playersOnline.push(socket.id);
+  } catch (error) {
+    console.error("Error in connection:", error);
+  }
+
+  // Make Random Join
   socket.on("joinRandom", () => {
-    randomPlayer.push(socket.id);
+    try {
+      randomPlayer.push(socket.id);
 
-    if (randomPlayer.length < 2) {
-      socket.emit("waiting");
-      
-    } else {
-      var temp = `${randomPlayer[0]}%${socket.id}`;
-      team[temp] = [randomPlayer.shift(), socket.id];
-      var con = "X";
-      var p = 1;
-      io.to(team[temp][0]).emit("startGame", temp, con, p);
-      con = "O";
-      p = 2;
-      io.to(team[temp][1]).emit("startGame", temp, con, p);
+      if (randomPlayer.length < 2) {
+        socket.emit("waiting");
+      } else {
+        var temp = `${randomPlayer[0]}%${socket.id}`;
+        team[temp] = [randomPlayer.shift(), socket.id];
+        var con = "X";
+        var p = 1;
+        io.to(team[temp][0]).emit("startGame", temp, con, p);
+        con = "O";
+        p = 2;
+        io.to(team[temp][1]).emit("startGame", temp, con, p);
 
-      randomPlayer = [];
+        randomPlayer = [];
+      }
+
+    } catch (error) {
+      console.error("Error in joinRandom:", error);
     }
+  });
 
-    console.log(randomPlayer, team[temp]);
+  // Join With Number
+  socket.on("joinWithNumber", (randomnumber) => {
+    try {
+      p2p[`${randomnumber}`] = socket.id;
+      console.log(p2p, randomnumber);
+    } catch (error) {
+      console.error("Error in joinWithNumber:", error);
+    }
   });
 
 
-//Join With Number
-socket.on("joinWithNumber",(randomnumber)=>
-{
-  p2p[`${randomnumber}`]=socket.id;
-  console.log(p2p,randomnumber)
-})
-console.log(p2p)
-socket.on("joinWithEnteredNumber",(number)=>
-{
-  console.log(number,p2p)
-  if(p2p[number]===undefined)
-  {
-    console.log("Error",p2p)
-    io.to(socket.id).emit("Error","Not Found")
-  }
-  else
-  {
-    var temp = `${p2p[number]}%${socket.id}`;
-      team[temp] = [p2p[number], socket.id];
-      var con = "X";
-      var p = 1;
-      io.to(team[temp][0]).emit("startGame", temp, con, p);
-      con = "O";
-      p = 2;
-      io.to(team[temp][1]).emit("startGame", temp, con, p);
-      p2p[number]=undefined
-  }
-})
+  socket.on("joinWithEnteredNumber", (number) => {
+    try {
+      if (p2p[number] === undefined) {
+        io.to(socket.id).emit("Error", "Not Found");
+      } else {
+        var temp = `${p2p[number]}%${socket.id}`;
+        team[temp] = [p2p[number], socket.id];
+        var con = "X";
+        var p = 1;
+        io.to(team[temp][0]).emit("startGame", temp, con, p);
+        con = "O";
+        p = 2;
+        io.to(team[temp][1]).emit("startGame", temp, con, p);
+        p2p[number] = undefined;
+      }
+    } catch (error) {
+      console.error("Error in joinWithEnteredNumber:", error);
+      io.to(socket.id).emit("Error", "An error occurred");
+    }
+  });
 
+  // Leave the Game
+  socket.on("leave", (temp, player) => {
+    try {
+      
+      if (player === 2) io.to(team[temp][0]).emit("leaveGame");
+      else io.to(team[temp][1]).emit("leaveGame");
+    } catch (error) {
+      console.error("Error in leave:", error);
+    }
+  });
 
+  // Message
+  socket.on("Message", (temp, player, messaget) => {
+    try {
+      var m = messaget;
+      if (player === 2) io.to(team[temp][0]).emit("updateMessage", m);
+      else io.to(team[temp][1]).emit("updateMessage", m);
+    } catch (error) {
+      console.error("Error in Message:", error);
+    }
+  });
 
-
-  //Game Board Progress
+  // Game Board Progress
   socket.on("updateGameBoard", (newGameBoard, temp, player) => {
-    if (player === 2) io.to(team[temp][0]).emit("updateGame", newGameBoard);
-    else io.to(team[temp][1]).emit("updateGame", newGameBoard);
-    const winner = validateGame(newGameBoard);
-    console.log(winner);
-    // Send the winner to the clients
-    if (winner === "X") {
-      io.to(team[temp][0]).emit("gameWinner", "X");
-      io.to(team[temp][1]).emit("gameWinner", "X");
-    } else if (winner === "O") {
-      io.to(team[temp][0]).emit("gameWinner", "O");
-      io.to(team[temp][1]).emit("gameWinner", "O");
-    } else if (winner === "draw") {
-      io.to(team[temp][0]).emit("gameWinner", "draw");
-      io.to(team[temp][1]).emit("gameWinner", "draw");
+    try {
+      if (player === 2) io.to(team[temp][0]).emit("updateGame", newGameBoard);
+      else io.to(team[temp][1]).emit("updateGame", newGameBoard);
+      const winner = validateGame(newGameBoard);
+      console.log(winner);
+      // Send the winner to the clients
+      if (winner === "X") {
+        io.to(team[temp][0]).emit("gameWinner", "X");
+        io.to(team[temp][1]).emit("gameWinner", "X");
+      } else if (winner === "O") {
+        io.to(team[temp][0]).emit("gameWinner", "O");
+        io.to(team[temp][1]).emit("gameWinner", "O");
+      } else if (winner === "draw") {
+        io.to(team[temp][0]).emit("gameWinner", "draw");
+        io.to(team[temp][1]).emit("gameWinner", "draw");
+      }
+    } catch (error) {
+      console.error("Error in updateGameBoard:", error);
     }
   });
 });
@@ -98,57 +131,62 @@ server.listen(port, () => {
 });
 
 function validateGame(gameBoard) {
-  // Check rows
-  for (let i = 0; i < 3; i++) {
-    if (
-      gameBoard[i][0] === gameBoard[i][1] &&
-      gameBoard[i][0] === gameBoard[i][2] &&
-      gameBoard[i][0] !== ""
-    ) {
-      return gameBoard[i][0];
+  try {
+    // Check rows
+    for (let i = 0; i < 3; i++) {
+      if (
+        gameBoard[i][0] === gameBoard[i][1] &&
+        gameBoard[i][0] === gameBoard[i][2] &&
+        gameBoard[i][0] !== ""
+      ) {
+        return gameBoard[i][0];
+      }
     }
-  }
 
-  // Check columns
-  for (let i = 0; i < 3; i++) {
-    if (
-      gameBoard[0][i] === gameBoard[1][i] &&
-      gameBoard[0][i] === gameBoard[2][i] &&
-      gameBoard[0][i] !== ""
-    ) {
-      return gameBoard[0][i];
+    // Check columns
+    for (let i = 0; i < 3; i++) {
+      if (
+        gameBoard[0][i] === gameBoard[1][i] &&
+        gameBoard[0][i] === gameBoard[2][i] &&
+        gameBoard[0][i] !== ""
+      ) {
+        return gameBoard[0][i];
+      }
     }
-  }
 
-  // Check diagonals
-  if (
-    (gameBoard[0][0] === gameBoard[1][1] &&
-      gameBoard[0][0] === gameBoard[2][2] &&
-      gameBoard[0][0] !== "") ||
-    (gameBoard[0][2] === gameBoard[1][1] &&
-      gameBoard[0][2] === gameBoard[2][0] &&
-      gameBoard[0][2] !== "")
-  ) {
-    return gameBoard[1][1];
-  }
+    // Check diagonals
+    if (
+      (gameBoard[0][0] === gameBoard[1][1] &&
+        gameBoard[0][0] === gameBoard[2][2] &&
+        gameBoard[0][0] !== "") ||
+      (gameBoard[0][2] === gameBoard[1][1] &&
+        gameBoard[0][2] === gameBoard[2][0] &&
+        gameBoard[0][2] !== "")
+    ) {
+      return gameBoard[1][1];
+    }
 
-  // Check for a draw
-  let isDraw = true;
-  for (let i = 0; i < 3; i++) {
-    for (let j = 0; j < 3; j++) {
-      if (gameBoard[i][j] === "") {
-        isDraw = false;
+    // Check for a draw
+    let isDraw = true;
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        if (gameBoard[i][j] === "") {
+          isDraw = false;
+          break;
+        }
+      }
+      if (!isDraw) {
         break;
       }
     }
-    if (!isDraw) {
-      break;
+    if (isDraw) {
+      return "draw";
     }
-  }
-  if (isDraw) {
-    return "draw";
-  }
 
-  // No winner yet
-  return null;
+    // No winner yet
+    return null;
+  } catch (error) {
+    console.error("Error in validateGame:", error);
+    return null;
+  }
 }
