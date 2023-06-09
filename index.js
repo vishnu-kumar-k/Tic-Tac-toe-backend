@@ -13,6 +13,7 @@ var playersOnline = [];
 var randomPlayer = [];
 var team = {};
 const p2p = {};
+const t={};
 io.on("connection", (socket) => {
   console.log("A user connected");
 
@@ -21,7 +22,34 @@ io.on("connection", (socket) => {
   } catch (error) {
     console.error("Error in connection:", error);
   }
+  socket.on("disconnect", () => {
+    try{
+    randomPlayer=[];
+    console.log("DisConnect")
+    p=t[socket.id];
+    console.log(team[p]);
+    if(team[p][0]==socket.id)
+    {
+      socket.to(team[p][1]).emit("leaveGame");
+            socket.to(team[p][0]).emit("leaveGame");
+            
+    }
+    else
+    {
+      team[p]=undefined;
+      socket.to(team[p][1]).emit("leaveGame");
+            socket.to(team[p][0]).emit("leaveGame");
+    }
+    t[temp[p][0]]=undefined;
+    t[temp[p][1]]=undefined;
+    temp[p]=undefined;
 
+  }
+  catch(e)
+  {
+    console.log(e)
+  }
+  });
   // Make Random Join
   socket.on("joinRandom", () => {
     try {
@@ -31,6 +59,8 @@ io.on("connection", (socket) => {
         socket.emit("waiting");
       } else {
         var temp = `${randomPlayer[0]}%${socket.id}`;
+        t[randomPlayer[0]]=temp;
+        t[socket.id]=temp;
         team[temp] = [randomPlayer.shift(), socket.id];
         var con = "X";
         var p = 1;
@@ -41,30 +71,29 @@ io.on("connection", (socket) => {
 
         randomPlayer = [];
       }
-
     } catch (error) {
       console.error("Error in joinRandom:", error);
     }
   });
 
-  // Join With Number
   socket.on("joinWithNumber", (randomnumber) => {
     try {
       p2p[`${randomnumber}`] = socket.id;
-      console.log(p2p, randomnumber);
     } catch (error) {
       console.error("Error in joinWithNumber:", error);
     }
   });
-
 
   socket.on("joinWithEnteredNumber", (number) => {
     try {
       if (p2p[number] === undefined) {
         io.to(socket.id).emit("Error", "Not Found");
       } else {
+        
         var temp = `${p2p[number]}%${socket.id}`;
         team[temp] = [p2p[number], socket.id];
+        t[p2p[number]]=temp;
+        t[socket.id]=temp;
         var con = "X";
         var p = 1;
         io.to(team[temp][0]).emit("startGame", temp, con, p);
@@ -80,15 +109,7 @@ io.on("connection", (socket) => {
   });
 
   // Leave the Game
-  socket.on("leave", (temp, player) => {
-    try {
-      
-      if (player === 2) io.to(team[temp][0]).emit("leaveGame");
-      else io.to(team[temp][1]).emit("leaveGame");
-    } catch (error) {
-      console.error("Error in leave:", error);
-    }
-  });
+  
 
   // Message
   socket.on("Message", (temp, player, messaget) => {
